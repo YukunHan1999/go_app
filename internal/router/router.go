@@ -13,6 +13,10 @@ import (
 	debugrepo "github.com/myapp/internal/modules/debug/repository"
 	debugsvc "github.com/myapp/internal/modules/debug/service"
 
+	envziphandler "github.com/myapp/internal/modules/envzip/handler"
+	envziprepo "github.com/myapp/internal/modules/envzip/repository"
+	envzipsvc "github.com/myapp/internal/modules/envzip/service"
+
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -42,6 +46,11 @@ func RegisterRoute(db *gorm.DB) *gin.Engine {
 	debugS := debugsvc.NewDebugService(db, debuginfoS, directoryS, packageS, attS)
 	debugH := debughandler.NewDirectoryHandler(debugS)
 
+	// envzip domain
+	envzipR := envziprepo.NewEnvZipRepo(db)
+	envzipS := envzipsvc.NewEnvZipService(envzipR, attS)
+	envzipH := envziphandler.NewEnvZipHandler(envzipS)
+
 	// attachment
 	r.POST("/upload", attH.UploadFile)
 	r.GET("/preview/:filename", attH.PreviewFile)
@@ -65,5 +74,12 @@ func RegisterRoute(db *gorm.DB) *gin.Engine {
 	r.DELETE("/debug", debugH.DeletePkgOrDir)
 	r.GET("/debug/:pid", debugH.FetchPkgOrDirData)
 	r.GET("/debug", debugH.FetchAllDirData)
+
+	// envzip
+	r.POST("/env", envzipH.CreateEnv)
+	r.DELETE("/env/:id", envzipH.DeleteEnv)
+	r.PUT("/env", envzipH.UpdateEnv)
+	r.GET("/env/dir", envzipH.FindDir)
+	r.GET("/env/:pid", envzipH.FindByPId)
 	return r
 }

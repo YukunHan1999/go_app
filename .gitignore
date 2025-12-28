@@ -3,3 +3,4 @@ cmd/server/uploads/*
 cmd/server/yk.db
 db/*
 uploads/*
+yk.db

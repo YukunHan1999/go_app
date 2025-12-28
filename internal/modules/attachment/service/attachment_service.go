@@ -59,6 +59,10 @@ func (s *attachmentService) DeleteById(ctx context.Context, id uint) error {
 	if err != nil {
 		return err
 	}
+	err = s.Repo.Delete(ctx, id)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
