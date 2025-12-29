@@ -33,7 +33,7 @@ func (s *packageService) RemoveUnusedAtt(ctx context.Context, id uint, allattids
 	if len(allattids) == 0 {
 		return nil
 	}
-	return s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		removeids := make([]uint, 0)
 		if id == 0 {
 			removeids = allattids
@@ -57,8 +57,18 @@ func (s *packageService) RemoveUnusedAtt(ctx context.Context, id uint, allattids
 			}
 		}
 		// removeids
-		return s.PgmSvc.DeleteAttByAttIds(ctx, removeids)
+		if len(removeids) > 0 {
+			err := s.PgmSvc.DeleteAttByAttIds(ctx, removeids)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
 	})
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func containAttId(arr []uint, id uint) bool {
@@ -114,6 +124,7 @@ func (s *packageService) CreatePkg(ctx context.Context, d *models.PkgDataInfo) (
 	if err != nil {
 		return nil, err
 	}
+	d.Id = pkg.Id
 	// calc need delete, update prorgaminfo
 	_, err = s.PgmSvc.FindByPkgId(ctx, pkgres.Id)
 	if err != nil {

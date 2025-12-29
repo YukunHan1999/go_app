@@ -51,8 +51,11 @@ func (s *debugService) CreatePkg(ctx context.Context, d *models.AddPkgDto) (*mod
 			return err
 		}
 		d.Pkg = pkg
-
-		return s.Pkgsvc.RemoveUnusedAtt(ctx, d.Pkg.Id, d.AttIds)
+		err = s.Pkgsvc.RemoveUnusedAtt(ctx, d.Pkg.Id, d.AttIds)
+		if err != nil {
+			return err
+		}
+		return nil
 	})
 	if err != nil {
 		return nil, err
