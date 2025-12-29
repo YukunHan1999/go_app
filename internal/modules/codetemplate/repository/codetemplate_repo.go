@@ -22,6 +22,7 @@ type codeTemplateRepo struct {
 }
 
 func NewCodeTemplateRepo(DB *gorm.DB) CodeTemplateRepo {
+	DB.AutoMigrate(&models.Codetemplate{})
 	return &codeTemplateRepo{DB}
 }
 

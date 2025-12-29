@@ -11,8 +11,8 @@ import (
 type EnvZipService interface {
 	FindDir(context.Context) ([]models.EnvDataDTO, error)
 	FindByPId(context.Context, uint) ([]models.EnvDataDTO, error)
-	Create(context.Context, *models.EnvData) (*models.EnvData, error)
-	Update(context.Context, *models.EnvData) (*models.EnvData, error)
+	Create(context.Context, *models.EnvDataDTO) (*models.EnvData, error)
+	Update(context.Context, *models.EnvDataDTO) (*models.EnvData, error)
 	Delete(context.Context, uint) error
 }
 
@@ -26,8 +26,14 @@ func NewEnvZipService(repo repository.EnvZipRepo, Attsvc service.AttachmentServi
 }
 
 // Create implements [envZipService].
-func (s *envZipService) Create(ctx context.Context, data *models.EnvData) (*models.EnvData, error) {
-	res, err := s.Repo.Create(ctx, data)
+func (s *envZipService) Create(ctx context.Context, data *models.EnvDataDTO) (*models.EnvData, error) {
+	envData := &models.EnvData{
+		Name:         data.Name,
+		Remark:       data.Remark,
+		Attachmentid: data.Attachmentid,
+		Pid:          data.Pid,
+	}
+	res, err := s.Repo.Create(ctx, envData)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +79,7 @@ func (s *envZipService) FindDir(ctx context.Context) ([]models.EnvDataDTO, error
 }
 
 // Update implements [envZipService].
-func (s *envZipService) Update(ctx context.Context, data *models.EnvData) (*models.EnvData, error) {
+func (s *envZipService) Update(ctx context.Context, data *models.EnvDataDTO) (*models.EnvData, error) {
 	envData, err := s.Repo.FindById(ctx, data.Id)
 	if err != nil {
 		return nil, err
@@ -85,8 +91,13 @@ func (s *envZipService) Update(ctx context.Context, data *models.EnvData) (*mode
 			return nil, err
 		}
 	}
+	// envData
+	envData.Name = data.Name
+	envData.Remark = data.Remark
+	envData.Attachmentid = data.Attachmentid
+	envData.Pid = data.Pid
 	// update new env attachment
-	res, err := s.Repo.Update(ctx, data)
+	res, err := s.Repo.Update(ctx, envData)
 	if err != nil {
 		return nil, err
 	}

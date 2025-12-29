@@ -47,7 +47,7 @@ func (r *envZipRepo) Delete(ctx context.Context, id uint) error {
 // FindByPId implements [EnvZipRepo].
 func (r *envZipRepo) FindByPId(ctx context.Context, pid uint) ([]models.EnvDataDTO, error) {
 	var res []models.EnvDataDTO
-	result := r.DB.WithContext(ctx).Raw(`SELECT t1.id, t1.name, t1.remark, t1.attachmentid, t2.url attachmenturl, t1.created_at, t1.updated_at, t1.pid
+	result := r.DB.WithContext(ctx).Raw(`SELECT t1.id, t1.name, t1.remark, t1.attachmentid, t2.name attachmentname,  t2.url attachmenturl, t1.created_at, t1.updated_at, t1.pid
 	FROM env_data t1
 	LEFT JOIN attachments t2 ON t1.attachmentid = t2.id
 	WHERE t1.pid = ?
@@ -73,8 +73,7 @@ func (r *envZipRepo) FindDir(ctx context.Context) ([]models.EnvDataDTO, error) {
 	result := r.DB.WithContext(ctx).Raw(`SELECT t1.id, t1.name, t1.remark, t1.attachmentid, t2.url attachmenturl, t1.created_at, t1.updated_at, t1.pid
 	FROM env_data t1
 	LEFT JOIN attachments t2 ON t1.attachmentid = t2.id
-	WHERE t1.attachmentid = ?
-	`, 0).Scan(&res)
+	`).Scan(&res)
 	if result.Error != nil {
 		return nil, result.Error
 	}

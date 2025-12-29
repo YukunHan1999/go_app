@@ -19,7 +19,7 @@ func NewEnvZipHandler(s service.EnvZipService) *EnvZipHandler {
 
 // add envdata
 func (h *EnvZipHandler) CreateEnv(c *gin.Context) {
-	var data *models.EnvData
+	var data *models.EnvDataDTO
 	err := c.ShouldBindBodyWithJSON(&data)
 	if err != nil {
 		common.Fail(c, 50000, "parse param error")
@@ -51,7 +51,7 @@ func (h *EnvZipHandler) DeleteEnv(c *gin.Context) {
 
 // update envdata
 func (h *EnvZipHandler) UpdateEnv(c *gin.Context) {
-	var data *models.EnvData
+	var data *models.EnvDataDTO
 	err := c.ShouldBindBodyWithJSON(&data)
 	if err != nil {
 		common.Fail(c, 50000, "parse param error")

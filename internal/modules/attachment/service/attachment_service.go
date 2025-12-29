@@ -54,10 +54,9 @@ func (s *attachmentService) DeleteById(ctx context.Context, id uint) error {
 	if err != nil {
 		return err
 	}
-	path := filepath.Join("uploads", att.Url)
-	err = removeFile(path)
-	if err != nil {
-		return err
+	if (len(att.Url) > 0) {
+		path := filepath.Join("uploads", att.Url)
+		_ = removeFile(path)
 	}
 	err = s.Repo.Delete(ctx, id)
 	if err != nil {
