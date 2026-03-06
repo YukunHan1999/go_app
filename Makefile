@@ -19,5 +19,8 @@ push: release
 
 run: release
 	echo "run myapp"
-	docker run -v /home/hyk/HYK/myapp/db/:/yk/db/ -v /home/hyk/HYK/myapp/uploads/:/yk/uploads/  -p 8080:8080 --name myapp -d myapp:${tag}
+	docker run -v /home/hyk/HYK/myapp/db/:/yk/db/ -v /home/hyk/HYK/myapp/uploads/:/yk/uploads/  --network blog-network --name myapp -d myapp:${tag}
+
+
+# docker run -v /home/hyk/HYK/myapp/db/:/yk/db/ -v /home/hyk/HYK/myapp/uploads/:/yk/uploads/  -p 30001:8080 --name myapp -d myapp:${tag}
 

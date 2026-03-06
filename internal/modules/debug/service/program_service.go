@@ -126,6 +126,7 @@ func (s *programService) BatchCreate(ctx context.Context, pkgid uint, d []models
 		p := &models.Program{
 			Name:      pgm.Name,
 			Code:      pgm.Code,
+			Sort:      pgm.Sort,
 			PackageId: pkgid,
 		}
 		res, err := s.Repo.Create(ctx, p)
