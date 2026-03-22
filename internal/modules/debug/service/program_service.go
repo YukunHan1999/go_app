@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"slices"
 
 	"github.com/myapp/internal/modules/debug/models"
 	"github.com/myapp/internal/modules/debug/repository"
@@ -74,6 +75,9 @@ func (s *programService) FindPgmInfoByPkgId(ctx context.Context, pkgid uint) ([]
 		}
 		res = append(res, *tmpPgmData)
 	}
+	slices.SortFunc(res, func(x, y models.PgmDataInfo) int {
+		return int(x.Sort) - int(y.Sort)
+	})
 	return res, nil
 }
 
