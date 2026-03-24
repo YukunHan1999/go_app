@@ -10,8 +10,8 @@ import (
 type PackageRepo interface {
 	FindById(context.Context, uint) (*models.Package, error)
 	QueryDataByDirId(context.Context, uint) ([]models.Package, error)
-	Create(context.Context, *models.Package) (*models.Package, error)
-	Update(context.Context, *models.Package) (*models.Package, error)
+	Create(context.Context, *models.Package, *gorm.DB) (*models.Package, error)
+	Update(context.Context, *models.Package, *gorm.DB) (*models.Package, error)
 	Delete(context.Context, uint) error
 }
 
@@ -42,8 +42,14 @@ func (r *packageRepo) QueryDataByDirId(ctx context.Context, pId uint) ([]models.
 }
 
 // create data
-func (r *packageRepo) Create(ctx context.Context, p *models.Package) (*models.Package, error) {
-	err := r.DB.WithContext(ctx).Create(p).Error
+func (r *packageRepo) Create(ctx context.Context, p *models.Package, tx *gorm.DB) (*models.Package, error) {
+	var database *gorm.DB
+	if tx != nil {
+		database = tx
+	} else {
+		database = r.DB
+	}
+	err := database.WithContext(ctx).Create(p).Error
 	if err != nil {
 		return nil, err
 	}
@@ -51,15 +57,22 @@ func (r *packageRepo) Create(ctx context.Context, p *models.Package) (*models.Pa
 }
 
 // update data
-func (r *packageRepo) Update(ctx context.Context, pack *models.Package) (*models.Package, error) {
+func (r *packageRepo) Update(ctx context.Context, pack *models.Package, tx *gorm.DB) (*models.Package, error) {
+	var database *gorm.DB
+	if tx != nil {
+		database = tx
+	} else {
+		database = r.DB
+	}
+	
 	var packTmp *models.Package
-	r.DB.WithContext(ctx).Find(&packTmp, pack.Id)
+	database.WithContext(ctx).Find(&packTmp, pack.Id)
 
 	packTmp.Name = pack.Name
 	packTmp.Description = pack.Description
 	packTmp.DirectoryId = pack.DirectoryId
 
-	r.DB.WithContext(ctx).Save(&packTmp)
+	database.WithContext(ctx).Save(&packTmp)
 	return packTmp, nil
 }
 

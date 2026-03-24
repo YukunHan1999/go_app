@@ -9,13 +9,13 @@ import (
 
 type DebugInfoRepo interface {
 	FindByAttIds(context.Context, []uint) ([]models.DebugInfo, error)
-	BatchDelete(context.Context, []uint) error
+	BatchDelete(context.Context, []uint, *gorm.DB) error
 	FindById(context.Context, uint) (*models.DebugInfo, error)
-	FindByIds(context.Context, []uint) ([]models.DebugInfo, error)
-	FindByPgmIds(context.Context, []uint) ([]models.DebugInfo, error)
+	FindByIds(context.Context, []uint, *gorm.DB) ([]models.DebugInfo, error)
+	FindByPgmIds(context.Context, []uint, *gorm.DB) ([]models.DebugInfo, error)
 	BatchDeleteByPgmIds(context.Context, []uint) error
-	Create(context.Context, *models.DebugInfo) (*models.DebugInfo, error)
-	Update(context.Context, *models.DebugInfo) (*models.DebugInfo, error)
+	Create(context.Context, *models.DebugInfo, *gorm.DB) (*models.DebugInfo, error)
+	Update(context.Context, *models.DebugInfo, *gorm.DB) (*models.DebugInfo, error)
 	Delete(context.Context, uint) error
 }
 
@@ -38,9 +38,15 @@ func (r *debugInfoRepo) FindByAttIds(ctx context.Context, ids []uint) ([]models.
 }
 
 // Batch Query debuginfo By id arry
-func (r *debugInfoRepo) FindByIds(ctx context.Context, ids []uint) ([]models.DebugInfo, error) {
+func (r *debugInfoRepo) FindByIds(ctx context.Context, ids []uint, tx *gorm.DB) ([]models.DebugInfo, error) {
+	var database *gorm.DB
+	if tx != nil {
+		database = tx
+	} else {
+		database = r.DB
+	}
 	var debugarr []models.DebugInfo
-	result := r.DB.WithContext(ctx).Where("id IN ?", ids).Find(&debugarr)
+	result := database.WithContext(ctx).Where("id IN ?", ids).Find(&debugarr)
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -56,9 +62,16 @@ func (r *debugInfoRepo) FindById(ctx context.Context, id uint) (*models.DebugInf
 	return debug, nil
 }
 
-func (r *debugInfoRepo) FindByPgmIds(ctx context.Context, ids []uint) ([]models.DebugInfo, error) {
+func (r *debugInfoRepo) FindByPgmIds(ctx context.Context, ids []uint, tx *gorm.DB) ([]models.DebugInfo, error) {
+	var database *gorm.DB
+	if tx != nil {
+		database = tx
+	} else {
+		database = r.DB
+	}
+	
 	var res []models.DebugInfo
-	result := r.DB.WithContext(ctx).Where("program_id IN ?", ids).Find(&res)
+	result := database.WithContext(ctx).Where("program_id IN ?", ids).Find(&res)
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -73,8 +86,14 @@ func (r *debugInfoRepo) BatchDeleteByPgmIds(ctx context.Context, d []uint) error
 	return nil
 }
 
-func (r *debugInfoRepo) BatchDelete(ctx context.Context, d []uint) error {
-	res := r.DB.WithContext(ctx).Where("id in ?", d).Delete(&models.DebugInfo{})
+func (r *debugInfoRepo) BatchDelete(ctx context.Context, d []uint, tx *gorm.DB) error {
+	var database *gorm.DB
+	if tx != nil {
+		database = tx
+	} else {
+		database = r.DB
+	}
+	res := database.WithContext(ctx).Where("id in ?", d).Delete(&models.DebugInfo{})
 	if res.Error != nil {
 		return res.Error
 	}
@@ -82,8 +101,14 @@ func (r *debugInfoRepo) BatchDelete(ctx context.Context, d []uint) error {
 }
 
 // create data
-func (r *debugInfoRepo) Create(ctx context.Context, info *models.DebugInfo) (*models.DebugInfo, error) {
-	err := r.DB.WithContext(ctx).Create(info).Error
+func (r *debugInfoRepo) Create(ctx context.Context, info *models.DebugInfo, tx *gorm.DB) (*models.DebugInfo, error) {
+	var database *gorm.DB
+	if tx != nil {
+		database = tx
+	} else {
+		database = r.DB
+	}
+	err := database.WithContext(ctx).Create(info).Error
 	if err != nil {
 		return nil, err
 	}
@@ -91,15 +116,22 @@ func (r *debugInfoRepo) Create(ctx context.Context, info *models.DebugInfo) (*mo
 }
 
 // update data
-func (r *debugInfoRepo) Update(ctx context.Context, info *models.DebugInfo) (*models.DebugInfo, error) {
+func (r *debugInfoRepo) Update(ctx context.Context, info *models.DebugInfo, tx *gorm.DB) (*models.DebugInfo, error) {
+	var database *gorm.DB
+	if tx != nil {
+		database = tx
+	} else {
+		database = r.DB
+	}
+	
 	var debugInfoTmp *models.DebugInfo
-	r.DB.WithContext(ctx).Find(&debugInfoTmp, info.Id)
+	database.WithContext(ctx).Find(&debugInfoTmp, info.Id)
 
 	debugInfoTmp.ProgramId = info.ProgramId
 	debugInfoTmp.LineNo = info.LineNo
 	debugInfoTmp.Attachmentid = info.Attachmentid
 
-	r.DB.WithContext(ctx).Save(&debugInfoTmp)
+	database.WithContext(ctx).Save(&debugInfoTmp)
 	return debugInfoTmp, nil
 }
 

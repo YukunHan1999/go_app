@@ -9,12 +9,12 @@ import (
 )
 
 type PackageService interface {
-	RemoveUnusedAtt(context.Context, uint, []uint) error
+	RemoveUnusedAtt(context.Context, uint, []uint, *gorm.DB) error
 	LoadSingle(context.Context, uint) (*models.PkgDataInfo, error)
 	DeleteById(context.Context, uint) error
-	UpdatePkg(context.Context, *models.PkgDataInfo) (*models.PkgDataInfo, error)
-	CreatePkg(context.Context, *models.PkgDataInfo) (*models.PkgDataInfo, error)
-	Create(context.Context, *models.Package) (*models.Package, error)
+	UpdatePkg(context.Context, *models.PkgDataInfo, *gorm.DB) (*models.PkgDataInfo, error)
+	CreatePkg(context.Context, *models.PkgDataInfo, *gorm.DB) (*models.PkgDataInfo, error)
+	Create(context.Context, *models.Package, *gorm.DB) (*models.Package, error)
 	QueryDataByDirId(context.Context, uint) ([]models.Package, error)
 }
 
@@ -29,16 +29,22 @@ func NewPackageService(DB *gorm.DB, Repo repository.PackageRepo, PgmSvc ProgramS
 	return &packageService{DB, Repo, PgmSvc}
 }
 
-func (s *packageService) RemoveUnusedAtt(ctx context.Context, id uint, allattids []uint) error {
+func (s *packageService) RemoveUnusedAtt(ctx context.Context, id uint, allattids []uint, tx *gorm.DB) error {
+	var database *gorm.DB
+	if tx != nil {
+		database = tx
+	} else {
+		database = s.DB
+	}
 	if len(allattids) == 0 {
 		return nil
 	}
-	err := s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := database.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		removeids := make([]uint, 0)
 		if id == 0 {
 			removeids = allattids
 		} else {
-			pgmarr, err := s.PgmSvc.FindByPkgId(ctx, id)
+			pgmarr, err := s.PgmSvc.FindByPkgId(ctx, id, tx)
 			if err != nil {
 				return err
 			}
@@ -46,7 +52,7 @@ func (s *packageService) RemoveUnusedAtt(ctx context.Context, id uint, allattids
 			for _, pgm := range pgmarr {
 				pgmids = append(pgmids, pgm.Id)
 			}
-			usedAttids, err := s.PgmSvc.FindUsedAttByPgmids(ctx, pgmids)
+			usedAttids, err := s.PgmSvc.FindUsedAttByPgmids(ctx, pgmids, tx)
 			if err != nil {
 				return err
 			}
@@ -58,7 +64,7 @@ func (s *packageService) RemoveUnusedAtt(ctx context.Context, id uint, allattids
 		}
 		// removeids
 		if len(removeids) > 0 {
-			err := s.PgmSvc.DeleteAttByAttIds(ctx, removeids)
+			err := s.PgmSvc.DeleteAttByAttIds(ctx, removeids, tx)
 			if err != nil {
 				return err
 			}
@@ -85,7 +91,7 @@ func (s *packageService) LoadSingle(ctx context.Context, id uint) (*models.PkgDa
 	if err != nil {
 		return nil, err
 	}
-	pgmarr, err := s.PgmSvc.FindPgmInfoByPkgId(ctx, p.Id)
+	pgmarr, err := s.PgmSvc.FindPgmInfoByPkgId(ctx, p.Id, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +118,7 @@ func (s *packageService) DeleteById(ctx context.Context, id uint) error {
 	return nil
 }
 
-func (s *packageService) CreatePkg(ctx context.Context, d *models.PkgDataInfo) (*models.PkgDataInfo, error) {
+func (s *packageService) CreatePkg(ctx context.Context, d *models.PkgDataInfo, tx *gorm.DB) (*models.PkgDataInfo, error) {
 	// create package
 	var pkg = &models.Package{
 		Id:          d.Id,
@@ -120,25 +126,25 @@ func (s *packageService) CreatePkg(ctx context.Context, d *models.PkgDataInfo) (
 		Description: d.Description,
 		DirectoryId: d.DirectoryId,
 	}
-	pkgres, err := s.Create(ctx, pkg)
+	pkgres, err := s.Create(ctx, pkg, tx)
 	if err != nil {
 		return nil, err
 	}
 	d.Id = pkg.Id
 	// calc need delete, update prorgaminfo
-	_, err = s.PgmSvc.FindByPkgId(ctx, pkgres.Id)
+	_, err = s.PgmSvc.FindByPkgId(ctx, pkgres.Id, tx)
 	if err != nil {
 		return nil, err
 	}
 	// need create
-	s.PgmSvc.BatchCreate(ctx, pkgres.Id, d.ProgramArray)
+	s.PgmSvc.BatchCreate(ctx, pkgres.Id, d.ProgramArray, tx)
 	return d, nil
 }
 
 // Update Pkg
-func (s *packageService) UpdatePkg(ctx context.Context, d *models.PkgDataInfo) (*models.PkgDataInfo, error) {
+func (s *packageService) UpdatePkg(ctx context.Context, d *models.PkgDataInfo, tx *gorm.DB) (*models.PkgDataInfo, error) {
 	// calc need delete, update prorgaminfo
-	pgmres, err := s.PgmSvc.FindByPkgId(ctx, d.Id)
+	pgmres, err := s.PgmSvc.FindByPkgId(ctx, d.Id, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +156,7 @@ func (s *packageService) UpdatePkg(ctx context.Context, d *models.PkgDataInfo) (
 		DirectoryId: d.DirectoryId,
 	}
 	// pkg save
-	pkgres, err := s.Repo.Update(ctx, pkg)
+	pkgres, err := s.Repo.Update(ctx, pkg, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -164,17 +170,17 @@ func (s *packageService) UpdatePkg(ctx context.Context, d *models.PkgDataInfo) (
 
 	if len(addRes) > 0 {
 		// need create
-		s.PgmSvc.BatchCreate(ctx, d.Id, addRes)
+		s.PgmSvc.BatchCreate(ctx, d.Id, addRes, tx)
 	}
 
 	if len(updatedRes) > 0 {
 		// need updated
-		s.PgmSvc.BatchUpdate(ctx, d.Id, updatedRes)
+		s.PgmSvc.BatchUpdate(ctx, d.Id, updatedRes, tx)
 	}
 
 	if len(deleteRes) > 0 {
 		// need delete and batch delete files
-		s.PgmSvc.BatchDelete(ctx, deleteRes)
+		s.PgmSvc.BatchDelete(ctx, deleteRes, tx)
 	}
 	return d, nil
 }
@@ -229,8 +235,8 @@ func queryPgmIdIsExistMemory(id uint, pgmarr []models.PgmDataInfo) bool {
 }
 
 // Create Package
-func (s *packageService) Create(ctx context.Context, pkg *models.Package) (*models.Package, error) {
-	return s.Repo.Create(ctx, pkg)
+func (s *packageService) Create(ctx context.Context, pkg *models.Package, tx *gorm.DB) (*models.Package, error) {
+	return s.Repo.Create(ctx, pkg, tx)
 }
 
 // QueryByDirId

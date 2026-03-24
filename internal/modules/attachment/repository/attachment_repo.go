@@ -8,7 +8,7 @@ import (
 )
 
 type AttachmentRepo interface {
-	FindByIds(context.Context, []uint) ([]models.Attachment, error)
+	FindByIds(context.Context, []uint, *gorm.DB) ([]models.Attachment, error)
 	FindById(context.Context, uint) (*models.Attachment, error)
 	Create(context.Context, *models.Attachment) (*models.Attachment, error)
 	Update(context.Context, *models.Attachment) (*models.Attachment, error)
@@ -25,9 +25,16 @@ func NewAttachmentRepo(DB *gorm.DB) AttachmentRepo {
 }
 
 // Batch Query By Ids
-func (r *attachmentRepo) FindByIds(ctx context.Context, ids []uint) ([]models.Attachment, error) {
+func (r *attachmentRepo) FindByIds(ctx context.Context, ids []uint, tx *gorm.DB) ([]models.Attachment, error) {
+	var database *gorm.DB;
+	if tx!=nil {
+		database = tx
+    } else {
+		database = r.DB
+    }
+
 	var attarr []models.Attachment
-	result := r.DB.WithContext(ctx).Where("id IN ?", ids).Find(&attarr)
+	result := database.WithContext(ctx).Where("id IN ?", ids).Find(&attarr)
 	if result.Error != nil {
 		return nil, result.Error
 	}

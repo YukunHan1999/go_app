@@ -34,7 +34,7 @@ func NewDebugService(DB *gorm.DB, Dbgsvc DebugInfoService, Dirsvc DirectoryServi
 }
 
 func (s *debugService) ClearGarbageAtt(ctx context.Context, pkgid uint, attGarbage []uint) error {
-	return s.Pkgsvc.RemoveUnusedAtt(ctx, pkgid, attGarbage)
+	return s.Pkgsvc.RemoveUnusedAtt(ctx, pkgid, attGarbage, nil)
 }
 
 func (s *debugService) FindSinglePkg(ctx context.Context, id uint) (*models.PkgDataInfo, error) {
@@ -46,12 +46,12 @@ func (s *debugService) FindSinglePkg(ctx context.Context, id uint) (*models.PkgD
 func (s *debugService) CreatePkg(ctx context.Context, d *models.AddPkgDto) (*models.AddPkgDto, error) {
 	err := s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// create pkg
-		pkg, err := s.Pkgsvc.CreatePkg(ctx, d.Pkg)
+		pkg, err := s.Pkgsvc.CreatePkg(ctx, d.Pkg, tx)
 		if err != nil {
 			return err
 		}
 		d.Pkg = pkg
-		err = s.Pkgsvc.RemoveUnusedAtt(ctx, d.Pkg.Id, d.AttIds)
+		err = s.Pkgsvc.RemoveUnusedAtt(ctx, d.Pkg.Id, d.AttIds, tx)
 		if err != nil {
 			return err
 		}
@@ -75,12 +75,12 @@ func (s *debugService) DeletePkgById(ctx context.Context, id uint) error {
 // update pkginfo
 func (s *debugService) UpdatePkg(ctx context.Context, d *models.AddPkgDto) (*models.AddPkgDto, error) {
 	err := s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		updatedPkg, err := s.Pkgsvc.UpdatePkg(ctx, d.Pkg)
+		updatedPkg, err := s.Pkgsvc.UpdatePkg(ctx, d.Pkg, tx)
 		if err != nil {
 			return err
 		}
 		d.Pkg = updatedPkg
-		return s.Pkgsvc.RemoveUnusedAtt(ctx, d.Pkg.Id, d.AttIds)
+		return s.Pkgsvc.RemoveUnusedAtt(ctx, d.Pkg.Id, d.AttIds, tx)
 	})
 	if err != nil {
 		return nil, err

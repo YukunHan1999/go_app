@@ -65,7 +65,7 @@ func (h AttachmentHandler) ClearGarbageAtt(c *gin.Context) {
 		common.Fail(c, 50000, "Parse param error!")
 		return
 	}
-	err = h.S.BatchDeleteByIds(c.Request.Context(), r)
+	err = h.S.BatchDeleteByIds(c.Request.Context(), r, nil)
 	if err != nil {
 		common.Fail(c, 50000, "delete attachment error! ")
 		return

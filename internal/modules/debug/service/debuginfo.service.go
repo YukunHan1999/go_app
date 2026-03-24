@@ -8,16 +8,17 @@ import (
 	"github.com/myapp/internal/modules/attachment/service"
 	"github.com/myapp/internal/modules/debug/models"
 	"github.com/myapp/internal/modules/debug/repository"
+	"gorm.io/gorm"
 )
 
 type DebugInfoService interface {
-	BatchUpdate(context.Context, uint, []models.DbgInfo) ([]models.DbgInfo, error)
-	DeleteAttByAttIds(context.Context, []uint) error
+	BatchUpdate(context.Context, uint, []models.DbgInfo, *gorm.DB) ([]models.DbgInfo, error)
+	DeleteAttByAttIds(context.Context, []uint, *gorm.DB) error
 	FindByAttIds(context.Context, []uint) ([]models.DbgInfo, error)
-	BatchDelete(context.Context, []uint) error
-	FindByPgmIds(context.Context, []uint) ([]models.DbgInfo, error)
-	FindByPgmId(context.Context, uint) ([]models.DbgInfo, error)
-	BatchCreate(context.Context, uint, []models.DbgInfo) ([]models.DbgInfo, error)
+	BatchDelete(context.Context, []uint, *gorm.DB) error
+	FindByPgmIds(context.Context, []uint, *gorm.DB) ([]models.DbgInfo, error)
+	FindByPgmId(context.Context, uint, *gorm.DB) ([]models.DbgInfo, error)
+	BatchCreate(context.Context, uint, []models.DbgInfo, *gorm.DB) ([]models.DbgInfo, error)
 	Delete(context.Context, uint) error
 }
 
@@ -30,7 +31,7 @@ func NewDebugInfoService(Repo repository.DebugInfoRepo, Attsvc service.Attachmen
 	return &debugInfoService{Repo, Attsvc}
 }
 
-func (s *debugInfoService) BatchUpdate(ctx context.Context, pgmid uint, dbgarray []models.DbgInfo) ([]models.DbgInfo, error) {
+func (s *debugInfoService) BatchUpdate(ctx context.Context, pgmid uint, dbgarray []models.DbgInfo, tx *gorm.DB) ([]models.DbgInfo, error) {
 	res := make([]models.DbgInfo, 0)
 	// batch create dbginfo
 	for _, dbg := range dbgarray {
@@ -41,7 +42,7 @@ func (s *debugInfoService) BatchUpdate(ctx context.Context, pgmid uint, dbgarray
 			Sort:         dbg.Sort,
 			ProgramId:    pgmid,
 		}
-		dbginfo, err := s.Repo.Update(ctx, d)
+		dbginfo, err := s.Repo.Update(ctx, d, tx)
 		if err != nil {
 			return nil, err
 		}
@@ -60,8 +61,8 @@ func (s *debugInfoService) BatchUpdate(ctx context.Context, pgmid uint, dbgarray
 	return res, nil
 }
 
-func (d *debugInfoService) DeleteAttByAttIds(ctx context.Context, attids []uint) error {
-	return d.Attsvc.BatchDeleteByIds(ctx, attids)
+func (d *debugInfoService) DeleteAttByAttIds(ctx context.Context, attids []uint, tx *gorm.DB) error {
+	return d.Attsvc.BatchDeleteByIds(ctx, attids, tx)
 }
 
 func (d *debugInfoService) FindByAttIds(ctx context.Context, ids []uint) ([]models.DbgInfo, error) {
@@ -70,7 +71,7 @@ func (d *debugInfoService) FindByAttIds(ctx context.Context, ids []uint) ([]mode
 	if err != nil {
 		return nil, err
 	}
-	attarray, err := d.Attsvc.FindByIds(ctx, ids)
+	attarray, err := d.Attsvc.FindByIds(ctx, ids, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -93,8 +94,8 @@ func (d *debugInfoService) FindByAttIds(ctx context.Context, ids []uint) ([]mode
 	return res, nil
 }
 
-func (s *debugInfoService) FindByPgmIds(ctx context.Context, ids []uint) ([]models.DbgInfo, error) {
-	dbgarr, err := s.Repo.FindByPgmIds(ctx, ids)
+func (s *debugInfoService) FindByPgmIds(ctx context.Context, ids []uint, tx *gorm.DB) ([]models.DbgInfo, error) {
+	dbgarr, err := s.Repo.FindByPgmIds(ctx, ids, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +103,7 @@ func (s *debugInfoService) FindByPgmIds(ctx context.Context, ids []uint) ([]mode
 	for _, dbg := range dbgarr {
 		attids = append(attids, dbg.Attachmentid)
 	}
-	attarr, err := s.Attsvc.FindByIds(ctx, attids)
+	attarr, err := s.Attsvc.FindByIds(ctx, attids, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -110,9 +111,9 @@ func (s *debugInfoService) FindByPgmIds(ctx context.Context, ids []uint) ([]mode
 }
 
 // batch delete
-func (s *debugInfoService) BatchDelete(ctx context.Context, ids []uint) error {
+func (s *debugInfoService) BatchDelete(ctx context.Context, ids []uint, tx *gorm.DB) error {
 	// need batch remove attachment
-	res, err := s.Repo.FindByIds(ctx, ids)
+	res, err := s.Repo.FindByIds(ctx, ids, tx)
 	if err != nil {
 		return err
 	}
@@ -120,18 +121,18 @@ func (s *debugInfoService) BatchDelete(ctx context.Context, ids []uint) error {
 	for _, dbg := range res {
 		attids = append(attids, dbg.Attachmentid)
 	}
-	err = s.Attsvc.BatchDeleteByIds(ctx, attids)
+	err = s.Attsvc.BatchDeleteByIds(ctx, attids, tx)
 	if err != nil {
 		return err
 	}
-	return s.Repo.BatchDelete(ctx, ids)
+	return s.Repo.BatchDelete(ctx, ids, tx)
 }
 
 // Update
-func (s *debugInfoService) FindByPgmId(ctx context.Context, pgmid uint) ([]models.DbgInfo, error) {
+func (s *debugInfoService) FindByPgmId(ctx context.Context, pgmid uint, tx *gorm.DB) ([]models.DbgInfo, error) {
 	var pgmids = make([]uint, 0)
 	pgmids = append(pgmids, pgmid)
-	dbgarr, err := s.Repo.FindByPgmIds(ctx, pgmids)
+	dbgarr, err := s.Repo.FindByPgmIds(ctx, pgmids, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +140,7 @@ func (s *debugInfoService) FindByPgmId(ctx context.Context, pgmid uint) ([]model
 	for _, dbg := range dbgarr {
 		attids = append(attids, dbg.Attachmentid)
 	}
-	attarr, err := s.Attsvc.FindByIds(ctx, attids)
+	attarr, err := s.Attsvc.FindByIds(ctx, attids, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +181,7 @@ func matchAtt(id uint, attarr []attmodels.Attachment) (*attmodels.Attachment, er
 	return nil, fmt.Errorf("attachment is not exist: %d", id)
 }
 
-func (s *debugInfoService) BatchCreate(ctx context.Context, pgmid uint, dbgarray []models.DbgInfo) ([]models.DbgInfo, error) {
+func (s *debugInfoService) BatchCreate(ctx context.Context, pgmid uint, dbgarray []models.DbgInfo, tx *gorm.DB) ([]models.DbgInfo, error) {
 	res := make([]models.DbgInfo, 0)
 	// batch create dbginfo
 	for _, dbg := range dbgarray {
@@ -190,7 +191,7 @@ func (s *debugInfoService) BatchCreate(ctx context.Context, pgmid uint, dbgarray
 			Sort:         dbg.Sort,
 			ProgramId:    pgmid,
 		}
-		dbginfo, err := s.Repo.Create(ctx, d)
+		dbginfo, err := s.Repo.Create(ctx, d, tx)
 		if err != nil {
 			return nil, err
 		}
@@ -210,7 +211,7 @@ func (s *debugInfoService) BatchCreate(ctx context.Context, pgmid uint, dbgarray
 }
 
 func (s *debugInfoService) Update(ctx context.Context, d *models.DebugInfo) (*models.DebugInfo, error) {
-	return s.Repo.Update(ctx, d)
+	return s.Repo.Update(ctx, d, nil)
 }
 
 func (s *debugInfoService) Delete(ctx context.Context, id uint) error {

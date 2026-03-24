@@ -8,11 +8,12 @@ import (
 
 	"github.com/myapp/internal/modules/attachment/models"
 	"github.com/myapp/internal/modules/attachment/repository"
+	"gorm.io/gorm"
 )
 
 type AttachmentService interface {
-	FindByIds(context.Context, []uint) ([]models.Attachment, error)
-	BatchDeleteByIds(context.Context, []uint) error
+	FindByIds(context.Context, []uint, *gorm.DB) ([]models.Attachment, error)
+	BatchDeleteByIds(context.Context, []uint, *gorm.DB) error
 	DeleteById(context.Context, uint) error
 	Create(context.Context, *models.Attachment) (*models.Attachment, error)
 }
@@ -25,13 +26,13 @@ func NewAttachmentService(Repo repository.AttachmentRepo) AttachmentService {
 	return &attachmentService{Repo}
 }
 
-func (s *attachmentService) FindByIds(ctx context.Context, ids []uint) ([]models.Attachment, error) {
-	return s.Repo.FindByIds(ctx, ids)
+func (s *attachmentService) FindByIds(ctx context.Context, ids []uint, tx *gorm.DB) ([]models.Attachment, error) {
+	return s.Repo.FindByIds(ctx, ids, tx)
 }
 
 // Batch Remove file and attachment
-func (s *attachmentService) BatchDeleteByIds(ctx context.Context, ids []uint) error {
-	attarr, err := s.Repo.FindByIds(ctx, ids)
+func (s *attachmentService) BatchDeleteByIds(ctx context.Context, ids []uint, tx *gorm.DB) error {
+	attarr, err := s.Repo.FindByIds(ctx, ids, tx)
 	if err != nil {
 		return err
 	}

@@ -6,19 +6,20 @@ import (
 
 	"github.com/myapp/internal/modules/debug/models"
 	"github.com/myapp/internal/modules/debug/repository"
+	"gorm.io/gorm"
 )
 
 type ProgramService interface {
-	DeleteAttByAttIds(context.Context, []uint) error
-	FindUsedAttByPgmids(context.Context, []uint) ([]uint, error)
-	FindPgmInfoByPkgId(context.Context, uint) ([]models.PgmDataInfo, error)
-	BatchCreate(context.Context, uint, []models.PgmDataInfo) ([]models.PgmDataInfo, error)
-	BatchUpdate(context.Context, uint, []models.PgmDataInfo) ([]models.PgmDataInfo, error)
-	BatchDelete(context.Context, []uint) error
+	DeleteAttByAttIds(context.Context, []uint, *gorm.DB) error
+	FindUsedAttByPgmids(context.Context, []uint, *gorm.DB) ([]uint, error)
+	FindPgmInfoByPkgId(context.Context, uint, *gorm.DB) ([]models.PgmDataInfo, error)
+	BatchCreate(context.Context, uint, []models.PgmDataInfo, *gorm.DB) ([]models.PgmDataInfo, error)
+	BatchUpdate(context.Context, uint, []models.PgmDataInfo, *gorm.DB) ([]models.PgmDataInfo, error)
+	BatchDelete(context.Context, []uint, *gorm.DB) error
 	BatchDeleteByPkgId(context.Context, uint) error
-	FindByPkgId(context.Context, uint) ([]models.Program, error)
+	FindByPkgId(context.Context, uint, *gorm.DB) ([]models.Program, error)
 	Create(context.Context, *models.Program) (*models.Program, error)
-	Update(context.Context, *models.Program) (*models.Program, error)
+	Update(context.Context, *models.Program, *gorm.DB) (*models.Program, error)
 	Delete(context.Context, uint) error
 }
 
@@ -31,12 +32,12 @@ func NewProgramService(Repo repository.ProgramRepo, Dbgsvc DebugInfoService) Pro
 	return &programService{Repo, Dbgsvc}
 }
 
-func (s *programService) DeleteAttByAttIds(ctx context.Context, attids []uint) error {
-	return s.Dbgsvc.DeleteAttByAttIds(ctx, attids)
+func (s *programService) DeleteAttByAttIds(ctx context.Context, attids []uint, tx *gorm.DB) error {
+	return s.Dbgsvc.DeleteAttByAttIds(ctx, attids, tx)
 }
 
-func (s *programService) FindUsedAttByPgmids(ctx context.Context, pgmids []uint) ([]uint, error) {
-	dbgarr, err := s.Dbgsvc.FindByPgmIds(ctx, pgmids)
+func (s *programService) FindUsedAttByPgmids(ctx context.Context, pgmids []uint, tx *gorm.DB) ([]uint, error) {
+	dbgarr, err := s.Dbgsvc.FindByPgmIds(ctx, pgmids, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -47,10 +48,10 @@ func (s *programService) FindUsedAttByPgmids(ctx context.Context, pgmids []uint)
 	return res, nil
 }
 
-func (s *programService) FindPgmInfoByPkgId(ctx context.Context, pkgid uint) ([]models.PgmDataInfo, error) {
+func (s *programService) FindPgmInfoByPkgId(ctx context.Context, pkgid uint, tx *gorm.DB) ([]models.PgmDataInfo, error) {
 	var res []models.PgmDataInfo
 	// depend on pkgid query all pgminfo
-	pgmres, err := s.Repo.FindByPkgId(ctx, pkgid)
+	pgmres, err := s.Repo.FindByPkgId(ctx, pkgid, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +59,7 @@ func (s *programService) FindPgmInfoByPkgId(ctx context.Context, pkgid uint) ([]
 	for _, pgm := range pgmres {
 		pgmids = append(pgmids, pgm.Id)
 	}
-	dbgres, err := s.Dbgsvc.FindByPgmIds(ctx, pgmids)
+	dbgres, err := s.Dbgsvc.FindByPgmIds(ctx, pgmids, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +94,7 @@ func matchDbgByPgmId(pgmid uint, dbgarr []models.DbgInfo) []models.DbgInfo {
 
 func (s *programService) BatchDeleteByPkgId(ctx context.Context, pkgid uint) error {
 	// depend on pkgid query all pgminfo
-	pgmres, err := s.Repo.FindByPkgId(ctx, pkgid)
+	pgmres, err := s.Repo.FindByPkgId(ctx, pkgid, nil)
 	if err != nil {
 		return err
 	}
@@ -101,7 +102,7 @@ func (s *programService) BatchDeleteByPkgId(ctx context.Context, pkgid uint) err
 	for _, pgm := range pgmres {
 		pgmids = append(pgmids, pgm.Id)
 	}
-	dbgres, err := s.Dbgsvc.FindByPgmIds(ctx, pgmids)
+	dbgres, err := s.Dbgsvc.FindByPgmIds(ctx, pgmids, nil)
 	if err != nil {
 		return err
 	}
@@ -112,19 +113,19 @@ func (s *programService) BatchDeleteByPkgId(ctx context.Context, pkgid uint) err
 	for _, dbg := range dbgres {
 		dbgids = append(dbgids, dbg.Id)
 	}
-	err = s.Dbgsvc.BatchDelete(ctx, dbgids)
+	err = s.Dbgsvc.BatchDelete(ctx, dbgids, nil)
 	if err != nil {
 		return err
 	}
 	// 2. remove all pgminfo
-	err = s.Repo.BatchDelete(ctx, pgmids)
+	err = s.Repo.BatchDelete(ctx, pgmids, nil)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *programService) BatchCreate(ctx context.Context, pkgid uint, d []models.PgmDataInfo) ([]models.PgmDataInfo, error) {
+func (s *programService) BatchCreate(ctx context.Context, pkgid uint, d []models.PgmDataInfo, tx *gorm.DB) ([]models.PgmDataInfo, error) {
 	// create program, after create program fetch id and create debuginfo
 	for _, pgm := range d {
 		p := &models.Program{
@@ -133,13 +134,13 @@ func (s *programService) BatchCreate(ctx context.Context, pkgid uint, d []models
 			Sort:      pgm.Sort,
 			PackageId: pkgid,
 		}
-		res, err := s.Repo.Create(ctx, p)
+		res, err := s.Repo.Create(ctx, p, tx)
 		if err != nil {
 			return nil, err
 		}
 		pgm.Id = res.Id
 		// batch create debuginfo
-		_, err = s.Dbgsvc.BatchCreate(ctx, pgm.Id, pgm.DbgArray)
+		_, err = s.Dbgsvc.BatchCreate(ctx, pgm.Id, pgm.DbgArray, tx)
 		if err != nil {
 			return nil, err
 		}
@@ -147,7 +148,7 @@ func (s *programService) BatchCreate(ctx context.Context, pkgid uint, d []models
 	return d, nil
 }
 
-func (s *programService) BatchUpdate(ctx context.Context, pkgid uint, d []models.PgmDataInfo) ([]models.PgmDataInfo, error) {
+func (s *programService) BatchUpdate(ctx context.Context, pkgid uint, d []models.PgmDataInfo, tx *gorm.DB) ([]models.PgmDataInfo, error) {
 	// create program, after create program fetch id and create debuginfo
 	for _, pgm := range d {
 		// update program info
@@ -158,12 +159,12 @@ func (s *programService) BatchUpdate(ctx context.Context, pkgid uint, d []models
 			Sort:      pgm.Sort,
 			PackageId: pkgid,
 		}
-		_, err := s.Update(ctx, p)
+		_, err := s.Update(ctx, p, tx)
 		if err != nil {
 			return nil, err
 		}
 		// depend on pgmid query all dbginfo
-		res, err := s.Dbgsvc.FindByPgmId(ctx, pgm.Id)
+		res, err := s.Dbgsvc.FindByPgmId(ctx, pgm.Id, tx)
 		if err != nil {
 			return nil, err
 		}
@@ -171,7 +172,7 @@ func (s *programService) BatchUpdate(ctx context.Context, pkgid uint, d []models
 		addRes, updateRes, deleteRes := calcDiffDbgData(pgm, res)
 		if len(addRes) > 0 {
 			// create debuginfo
-			_, err := s.Dbgsvc.BatchCreate(ctx, pgm.Id, addRes)
+			_, err := s.Dbgsvc.BatchCreate(ctx, pgm.Id, addRes, tx)
 			if err != nil {
 				return nil, err
 			}
@@ -179,7 +180,7 @@ func (s *programService) BatchUpdate(ctx context.Context, pkgid uint, d []models
 
 		if len(updateRes) > 0 {
 			// create debuginfo
-			_, err := s.Dbgsvc.BatchUpdate(ctx, pgm.Id, updateRes)
+			_, err := s.Dbgsvc.BatchUpdate(ctx, pgm.Id, updateRes, tx)
 			if err != nil {
 				return nil, err
 			}
@@ -187,15 +188,15 @@ func (s *programService) BatchUpdate(ctx context.Context, pkgid uint, d []models
 
 		if len(deleteRes) > 0 {
 			// delete debuginfo
-			s.Dbgsvc.BatchDelete(ctx, deleteRes)
+			s.Dbgsvc.BatchDelete(ctx, deleteRes, tx)
 		}
 	}
 	return d, nil
 }
 
-func (s *programService) BatchDelete(ctx context.Context, pgmids []uint) error {
+func (s *programService) BatchDelete(ctx context.Context, pgmids []uint, tx *gorm.DB) error {
 	// Query all DebugInfo
-	res, err := s.Dbgsvc.FindByPgmIds(ctx, pgmids)
+	res, err := s.Dbgsvc.FindByPgmIds(ctx, pgmids, tx)
 	if err != nil {
 		return err
 	}
@@ -204,11 +205,11 @@ func (s *programService) BatchDelete(ctx context.Context, pgmids []uint) error {
 		dbgids = append(dbgids, dbg.Id)
 	}
 	// remove all dbginfo by dbgids
-	err = s.Dbgsvc.BatchDelete(ctx, dbgids)
+	err = s.Dbgsvc.BatchDelete(ctx, dbgids, tx)
 	if err != nil {
 		return err
 	}
-	return s.Repo.BatchDelete(ctx, pgmids)
+	return s.Repo.BatchDelete(ctx, pgmids, tx)
 }
 
 func calcDiffDbgData(d models.PgmDataInfo, arr []models.DbgInfo) (addRes []models.DbgInfo, updateRes []models.DbgInfo, deletedRes []uint) {
@@ -252,16 +253,16 @@ func queryDbgIsExistMemory(dbgid uint, dbgarray []models.DbgInfo) bool {
 }
 
 // find by pkgid
-func (s *programService) FindByPkgId(ctx context.Context, id uint) ([]models.Program, error) {
-	return s.Repo.FindByPkgId(ctx, id)
+func (s *programService) FindByPkgId(ctx context.Context, id uint, tx *gorm.DB) ([]models.Program, error) {
+	return s.Repo.FindByPkgId(ctx, id, tx)
 }
 
 func (s *programService) Create(ctx context.Context, d *models.Program) (*models.Program, error) {
-	return s.Repo.Create(ctx, d)
+	return s.Repo.Create(ctx, d, nil)
 }
 
-func (s *programService) Update(ctx context.Context, d *models.Program) (*models.Program, error) {
-	return s.Repo.Update(ctx, d)
+func (s *programService) Update(ctx context.Context, d *models.Program, tx *gorm.DB) (*models.Program, error) {
+	return s.Repo.Update(ctx, d, tx)
 }
 
 func (s *programService) Delete(ctx context.Context, id uint) error {
